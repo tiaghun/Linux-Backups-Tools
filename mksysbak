@@ -1,0 +1,33 @@
+#!/usr/bin/zsh
+printf 'Specify backup destination: '
+read BackupDestination
+Date=$(date +%m-%d-%Y_%H:%M)
+DebVer=$(lsb_release -a 2> /dev/null| grep Release | awk '{print $2;}')
+KernVer=$(uname -r)
+BackupString=$(printf "$BackupDestination"'Debian'"$DebVer"'_Kern'"$KernVer"'_'"$Date"'.tgz')
+DONE=0
+OriginalSize=$(sudo du -sh --exclude='/proc' --exclude='/tmp' --exclude='/mnt' --exclude='/dev' --exclude='/sys' --exclude='/run' --exclude='/media' --exclude='/var/log' --exclude='/var/cache/apt/archives' --exclude='/home/admin/Desktop' --exclude='/home/admin/Documents' --exclude='/home/admin/Downloads' --exclude='/home/admin/Music' --exclude='/home/admin/Pictures' --exclude='/home/admin/Public' --exclude='/home/admin/Videos' / 2> /dev/null | awk '{print $1;}')
+sudo tar -cvpzf $BackupString --exclude=$BackupString --exclude='/proc' --exclude='/tmp' --exclude='/mnt' --exclude='/dev' --exclude='/sys' --exclude='/run' --exclude='/media' --exclude='/var/log' --exclude='/var/cache/apt/archives' --exclude='/home/admin/Desktop' --exclude='/home/admin/Documents' --exclude='/home/admin/Downloads' --exclude='/home/admin/Music' --exclude='/home/admin/Pictures' --exclude='/home/admin/Public' --exclude='/home/admin/Videos' --one-file-system / &> /dev/null & disown && BackupPID=$!
+x=1
+while [ $x = 1 ]
+do
+  if [ $DONE = 0 ]
+    then Status=$(du -sh $BackupString | awk '{print $1;}')
+    clear
+    printf 'Backing up system to '"$BackupDestination"'\n'"$Status"' of '"$OriginalSize"'\nArchiving...'
+    if ps -p $BackupPID > /dev/null
+      then :
+    else
+      DONE=1
+    fi
+    sleep 1
+  else
+    x=0
+  fi
+done
+Status=$(du -sh $BackupString | awk '{print $1;}')
+sudo printf $OriginalSize | sudo tee > "$BackupString"'_SIZE'
+sudo ln -sf $BackupString "$BackupDestination"'Latest'
+sudo ln -sf "$BackupString"'_SIZE' "$BackupDestination"'Latest_SIZE'
+clear
+printf 'Backed up system to '"$BackupDestination"'\n'"$Status"' vs '"$OriginalSize"'\nDone.'

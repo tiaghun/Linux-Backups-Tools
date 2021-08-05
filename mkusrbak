@@ -1,0 +1,30 @@
+#!/usr/bin/zsh
+printf 'Path to backup folder: '
+read BackupDirectory
+Date=$(date +%m-%d-%Y_%H:%M)
+DONE=0
+BackupString=$(printf "$BackupDirectory"'admin-home_'"$Date"'.tgz')
+sudo tar czvpf $BackupString /home/admin &> /dev/null & disown && BackupPID=$!
+OriginalSize=$(du -sh /home/admin | awk '{print $1;}')
+x=1
+while [ $x = 1 ]
+do
+  if [ $DONE = 0 ]
+    then Status=$(du -sh $BackupString | awk '{print $1;}')
+    clear
+    printf 'Backing up home to '"$BackupDirectory"'\n'"$Status"' of '"$OriginalSize"'\nArchiving...'
+    if ps -p $BackupPID > /dev/null
+      then :
+    else
+      DONE=1
+    fi
+    sleep 1
+  else
+    x=0
+  fi
+done
+sudo printf "$OriginalSize" &> /dev/null | sudo tee "$BackupString"'_SIZE'
+sudo ln -sf $BackupString "$BackupDirectory"'Latest'
+sudo ln -sf "$BackupString"'_SIZE' "$BackupDirectory"'Latest_SIZE'
+clear
+printf 'Backed up home to '"$BackupDirectory"'\n'"$Status"' vs '"$OriginalSize"'\nDone.'

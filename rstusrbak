@@ -1,0 +1,27 @@
+#!/usr/bin/zsh
+printf 'Path to backup file: '
+read RestoreTarget
+BackupSize=$(sudo du -sh $RestoreTarget | awk '{print $1;}')
+CurrentSize=$(df -h /home/admin | awk '{print $4;}' | head -n 2 | tail -n 1 | awk -FG '{print $1}')
+DONE=0
+sudo tar -xzvpf $RestoreTarget ./ &> /dev/null & disown && RestorePID=$!
+x=1
+while [ $x = 1 ]
+do
+  if [ $DONE = 0 ]
+    then UsageStatus=$(df -h /home/admin | awk '{print $4;}' | head -n 2 | tail -n 1 | awk -FG '{print $1}')
+    Status=$(( $CurrentSize - $UsageStatus ))
+    clear
+    printf 'Restoring backup to /home/admin/\n'"$Status"'G of '"$BackupSize"'\nExtracting...'
+    if ps -p $RestorePID > /dev/null
+      then :
+    else
+      DONE=1
+    fi
+    sleep 1
+  else
+    x=0
+  fi
+done
+clear
+printf 'Restored backup to /home/admin/\n'"$Status"' of '"$BackupSize"'\nDone.'

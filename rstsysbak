@@ -1,0 +1,43 @@
+#!/usr/bin/zsh
+printf 'Path to backup file: '
+read RestoreTarget
+printf 'Path to restore to: '
+read RestoreDestination
+printf 'WARNING! This will extract the selected backup to '"$RestoreDestination"'\nIf a Linux filesystem exists in this path it will be overwritten.\nContinue? (Y/N) '
+read CONTINUE
+if [ $CONTINUE = 'Y' ]
+  then BackupSize=$(<"$RestoreTarget"'_SIZE')
+  CurrentSize=$(df -h $RestoreDestination | awk '{print $4;}' | head -n 2 | tail -n 1 | awk -FG '{print $1}')
+  DONE=0
+  sudo tar -xvpzf $RestoreTarget -C $RestoreDestination --numeric-owner &> /dev/null & disown && RestorePID=$!
+  x=1
+  while [ $x = 1 ]
+  do
+    if [ $DONE = 0 ]
+      then UsageStatus=$(df -h $RestoreDestination | awk '{print $4;}' | head -n 2 | tail -n 1 | awk -FG '{print $1}')
+      Status=$(( $CurrentSize - $UsageStatus ))
+      clear
+      printf 'Restoring backup to '"$RestoreDestination"'\n'"$Status"'G of '"$BackupSize"'\nExtracting...'
+      if ps -p $RestorePID > /dev/null
+        then :
+      else
+        DONE=1
+      fi
+      sleep 1
+    else
+      x=0
+    fi
+  done
+  sudo mkdir "$RestoreDestination"'proc'
+  sudo mkdir "$RestoreDestination"'tmp'
+  sudo mkdir "$RestoreDestination"'mnt'
+  sudo mkdir "$RestoreDestination"'dev'
+  sudo mkdir "$RestoreDestination"'sys'
+  sudo mkdir "$RestoreDestination"'run'
+  sudo mkdir "$RestoreDestination"'media'
+  sudo mkdir "$RestoreDestination"'var'
+  clear
+  printf 'Restored backup to '"$RestoreDestination"'\n'"$BackupSize"' of '"$BackupSize"'\nDone.'
+else
+  printf 'Restore aborted.\n'
+fi

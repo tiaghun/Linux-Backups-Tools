@@ -1,0 +1,47 @@
+#!/bin/zsh
+source ~/.zshrc
+mkdir Android\ Backup
+cd Android\ Backup
+printf $green'Backup app APKs...\n'$white
+mkdir APKs
+cd APKs
+for APP in $(adb shell pm list packages -3 -f)
+do
+  adb pull $( echo ${APP} | sed "s/^package://" | sed "s/base.apk=/base.apk /").apk
+done
+cd ..
+printf $green'Backup /data/...\n'$white
+adb backup -f DATA.backup -all -apk -nosystem
+printf $green'Backup SD card...\n'$white
+mkdir SDCARD
+cd SDCARD
+adb pull /storage/239C-09FB/Alarms
+adb pull /storage/239C-09FB/Archives
+adb pull /storage/239C-09FB/Backup
+adb pull /storage/239C-09FB/DCIM
+adb pull /storage/239C-09FB/Documents
+adb pull /storage/239C-09FB/Notifications
+adb pull /storage/239C-09FB/Pictures
+adb pull /storage/239C-09FB/Ringtones
+adb pull /storage/239C-09FB/Zork
+adb pull /storage/239C-09FB/authorized_keys
+cd ..
+printf $green'Backup Internal storage...\n'$white
+mkdir INTERNAL
+cd INTERNAL
+adb pull /storage/emulated/0/Librera
+adb pull /storage/emulated/0/RetroArch
+cd ..
+printf $green'Archiving APKs...\n'$white
+targz APKs.tgz APKs/
+rm -r APKs/
+printf $green'Archiving /data/...\n'$white
+targz DATA.tgz DATA.backup
+rm DATA.backup
+printf $green'Archiving SD card...\n'
+targz SDCARD.tgz SDCARD/
+rm -r SDCARD/
+printf $green'Archiving Internal storage...\n'$white
+targz INTERNAL.tgz INTERNAL/
+rm -r INTERNAL/
+printf 'Done.\n'$white
