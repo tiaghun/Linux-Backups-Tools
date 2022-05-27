@@ -1,0 +1,81 @@
+#!/bin/zsh
+# Get disk list, exclude boot drive
+printf 'Enter new hostname for Base: '
+read newhost
+DiskList=$(lsblk | grep disk)
+clear
+printf $DiskList'\nPlease enter disk identifier to use: '
+read DiskIdentifier
+if [ -z "$DiskIdentifier" ]
+  then printf 'Fatal Error: no disk identifier specified. Operation Aborted.'
+else
+  lsblk | grep $DiskIdentifier
+  printf 'Please review the disk info and confirm this is the correct disk.\nA new parition table will be created for the disk! \nContinue? (Y/N): '
+  read CONT
+  if [ $CONT = 'Y' ]
+    then printf $DiskIdentifier > ${HOME}/.mkbasetarg
+    /usr/local/bin/bsfmt
+    mkfs.vfat -F32 /dev/$DiskIdentifier'1'
+    mkswap /dev/$DiskIdentifier'2'
+    mkfs.ext4 /dev/$DiskIdentifier'3'
+    fatlabel /dev/$DiskIdentifier'1' boot
+    e2label /dev/$DiskIdentifier'3' Debian
+    printf 'Format complete. Mounting root Filesystem...\n'
+    mount /dev/$DiskIdentifier'3' /mnt
+    printf 'Syncing Master to Base...\n'
+    MasterSize=$(du -sh / --exclude='/mnt' --exclude='/media' --exclude='/dev' --exclude='/sys' --exclude='/proc' --exclude='/run' --exclude='/boot/efi' 2&> /dev/null | awk '{print $1;}')
+    rsync -a / /mnt --exclude /mnt --exclude /media --exclude /dev --exclude /sys --exclude /proc --exclude /run --exclude /boot/efi & disown; SyncPID=$!
+    x=1
+    while [ $x = 1 ]
+    do
+      SyncProgress=$(du -sh /mnt 2&> /dev/null | awk '{print $1;}')
+      if ps -p $SyncPID
+        then clear
+        printf 'Syncing Master to Base...\n'$SyncProgress' of '$MasterSize'\n'
+        sleep 1
+      else
+        clear
+        printf 'Finished Syncing Master to Base...\n'$SyncProgress' of '$MasterSize'\n'
+        x=0
+      fi
+    done
+    printf 'Rebuilding tmpfs Directories...\n'
+    mkdir /mnt/mnt /mnt/media /mnt/dev /mnt/sys /mnt/proc /mnt/run /mnt/boot/efi
+    printf 'Mounting Base boot Partition...\n'
+    mount /dev/$DiskIdentifier'1' /mnt/boot/efi
+    printf 'Syncing boot Partition...\n'
+    rsync -a /boot/efi/EFI/ /mnt/boot/efi
+    printf 'Updating Base hostname...\n'
+    printf $newhost > /mnt/etc/hostname
+    printf 'Generating new hosts file...\n'
+    printf '127.0.0.1\tlocalhost\n127.0.1.1\t'$newhost'\n\n# The following lines are desirable for IPv6 capable hosts\n::1\tlocalhost ip6-localhost ip6-loopback\nff02::1 ip6-allnodes\nff02::2 ip6-allrouters' > /mnt/etc/hosts
+    printf 'Generating new filesystem tab...\n'
+    newboot=$(blkid -o value -s UUID /dev/$DiskIdentifier'1')
+    newswap=$(blkid -o value -s UUID /dev/$DiskIdentifier'2')
+    newroot=$(blkid -o value -s UUID /dev/$DiskIdentifier'3')
+    printf '# /etc/fstab: static file system information.\n#\n# Use blkid to print the universally unique identifier for a\n# device; this may be used with UUID= as a more robust way to name devices\n# that works even if the disks are added and removed. See fstab(5).\n#\n# systemd generates mount units based on this file, see systemd.mount(5).\n# Please run systemctl daemon-reload after making changes here.\n# \n# <file system>\t<mount point>\t<type>\t<options>\t<dump>\t<pass>\n# / was on /dev/sda3 during installation\nUUID='$newroot'\t/\text4\terrors=remount-ro\t0\t1\n# /boot/efi was on /dev/sda1 during installation\nUUID='$newboot'\t/boot/efi\tvfat\tumask=0077\t0\t1\n# swap was on /dev/sda2 during installation\nUUID='$newswap'\tnone\tswap\tsw\t0\t0\n' > /mnt/etc/fstab
+    printf 'Binding volatile filesystems to Base...\n'
+    mount --bind /dev /mnt/dev
+    mount --bind /dev/pts /mnt/dev/pts
+    mount --bind /proc /mnt/proc
+    mount --bind /sys /mnt/sys
+    printf $DiskIdentifier > /mnt/.tmpdsk
+    printf 'Chroot to Base...\n'
+    chroot /mnt /usr/local/bin/mkgrub
+    umount /mnt/sys
+    umount /mnt/proc
+    umount /mnt/dev/pts
+    umount /mnt/dev
+    umount /mnt/boot/efi
+    umount /mnt
+    printf 'Done. Reboot into new system? (y/n)'
+    read doreboot
+    if [ $doreboot = y ]
+      then reboot
+    else
+      printf 'Not rebooting.\n'
+    fi
+  else
+    printf 'Operation Aborted.\n'
+  fi
+fi

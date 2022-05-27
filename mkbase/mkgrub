@@ -1,0 +1,7 @@
+#!/bin/zsh
+DiskIdentifier=$(</.tmpdsk)
+printf 'Installing GRUB2 to Base...\n'
+grub-install /dev/$DiskIdentifier
+grub-install --recheck /dev/$DiskIdentifier
+update-grub
+rm /.tmpdsk
