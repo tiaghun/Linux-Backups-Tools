@@ -1,0 +1,26 @@
+#!/bin/zsh
+vitar()
+{
+ printf 'File name: '
+ read OrigFile
+ printf 'Archive name: '
+ read ArchName
+ GZIP='--best'
+ XZ_OPT=-9 tar cJvf ../Documents/Archives/Operating\ Systems/"$ArchName" $OrigFile 2&> /dev/null & disown; ArchPID=$!
+ x=1
+ OrigSize=$(du -sh $OrigFile | awk '{print $1;}')
+ while [ $x = 1 ]
+ do
+   if ps -p $ArchPID
+     then ArchSize=$(du -sh ../Documents/Archives/Operating\ Systems/"$ArchName" | awk '{print $1;}')
+     clear
+     printf $ArchName'\n'$ArchSize' of '$OrigSize'\nArchiving...\n'
+     sleep 1
+   else
+     ArchSize=$(du -sh ../Documents/Archives/Operating\ Systems/"$ArchName" | awk '{print $1;}')
+     clear
+     printf $ArchName'\n'$ArchSize' vs '$OrigSize'\nDone.\n'
+     x=0
+   fi
+done
+}
