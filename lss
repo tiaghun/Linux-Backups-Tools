@@ -1,0 +1,11 @@
+#!/bin/zsh
+y=$(ls ./ | wc -l)
+x=1
+clear
+while [ $x -le $y ]
+do
+  folder=$(ls ./ | head -n $x | tail -n 1)
+  size=$(du -sh $folder | awk '{print $1;}')
+  printf $folder' '$size'\n'
+  x=$(( $x + 1 ))
+done
